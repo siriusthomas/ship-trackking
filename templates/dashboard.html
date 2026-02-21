@@ -305,9 +305,14 @@
                 <h3>Add Points</h3>
                 <p class="instructions">
                     <strong>Option 1:</strong> Enter coordinates below<br>
-                    <strong>Option 2:</strong> Click on ships/zones<br>
-                    <strong>Option 3:</strong> <span style="color:#50fa7b">Shift+Click</span> anywhere on map
+                    <strong>Option 2:</strong> Enable <span style="color:#50fa7b">"Add Point" mode</span>, then click
+                    map
                 </p>
+                <button id="addModeBtn" onclick="toggleAddMode()" style="
+                    width:100%; padding:10px; margin-bottom:8px; border:2px solid #50fa7b;
+                    border-radius:8px; background:transparent; color:#50fa7b;
+                    font-weight:600; cursor:pointer; transition:all 0.3s;
+                ">📍 Enable Add Point Mode</button>
                 <div class="coord-input" style="margin-top: 10px;">
                     <input type="number" id="latInput" placeholder="Latitude" step="0.0001">
                     <input type="number" id="lonInput" placeholder="Longitude" step="0.0001">
@@ -474,92 +479,101 @@
             });
         }
 
+        // ── Add Point Mode ──────────────────────────────────────
+        let addPointMode = false;
+
+        function toggleAddMode() {
+            addPointMode = !addPointMode;
+            const btn = document.getElementById('addModeBtn');
+            const mapDiv = document.getElementById('map');
+            if (addPointMode) {
+                btn.textContent = '✅ Add Point Mode ON — Click map to place';
+                btn.style.background = 'rgba(80,250,123,0.2)';
+                mapDiv.style.cursor = 'crosshair';
+            } else {
+                btn.textContent = '📍 Enable Add Point Mode';
+                btn.style.background = 'transparent';
+                mapDiv.style.cursor = '';
+            }
+        }
+
         // Track current map state
         let mapState = {
-            center: fig.layout.mapbox.center,
-            zoom: fig.layout.mapbox.zoom || 8
+            center: (fig.layout.mapbox && fig.layout.mapbox.center)
+                ? fig.layout.mapbox.center
+                : { lat: 20, lon: 30 },
+            zoom: (fig.layout.mapbox && fig.layout.mapbox.zoom)
+                ? fig.layout.mapbox.zoom
+                : 2
         };
 
         function attachClickHandler() {
-            const mapDiv = document.getElementById("map");
+            const mapDiv = document.getElementById('map');
 
-            // Handle clicks on data points (ships, zones, grid)
-            mapDiv.on("plotly_click", function (data) {
-                console.log('plotly_click event', data);
-                if (data.points && data.points.length > 0) {
-                    const point = data.points[0];
-                    if (point.lat !== undefined && point.lon !== undefined) {
-                        addPoint(point.lat, point.lon);
-                    }
-                }
+            // Track map center/zoom whenever user pans/zooms
+            mapDiv.on('plotly_relayout', function (eventData) {
+                if (!eventData) return;
+                if (eventData['mapbox.center']) mapState.center = eventData['mapbox.center'];
+                if (eventData['mapbox.zoom']) mapState.zoom = eventData['mapbox.zoom'];
             });
 
-            // Track map center/zoom changes
-            mapDiv.on("plotly_relayout", function (eventData) {
-                if (eventData) {
-                    if (eventData['mapbox.center']) {
-                        mapState.center = eventData['mapbox.center'];
-                    }
-                    if (eventData['mapbox.zoom']) {
-                        mapState.zoom = eventData['mapbox.zoom'];
-                    }
+            // plotly_click fires for data points (ships, zones, invisible grid)
+            mapDiv.on('plotly_click', function (data) {
+                if (!data.points || data.points.length === 0) return;
+                const point = data.points[0];
+                if (point.lat !== undefined && point.lon !== undefined) {
+                    addPoint(point.lat, point.lon);
+                    if (addPointMode) toggleAddMode(); // turn off mode after one click
+                    return;
                 }
-            });
-
-            // Add native click handler for clicking anywhere
-            // This uses Shift+Click to add points anywhere on the map
-            mapDiv.addEventListener('click', function (e) {
-                if (e.shiftKey) {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    // Get the mapbox container bounds
+                // Fallback: use event pixel position
+                if (addPointMode && data.event) {
                     const rect = mapDiv.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-
-                    // Convert pixel to lat/lon
+                    const x = data.event.clientX - rect.left;
+                    const y = data.event.clientY - rect.top;
                     const coords = pixelToLatLon(x, y, rect.width, rect.height);
                     if (coords) {
                         addPoint(coords.lat, coords.lon);
-                        console.log('Shift+Click added point:', coords);
+                        toggleAddMode();
                     }
                 }
             });
+
+            // Native click fallback — works when user clicks on empty map tiles
+            mapDiv.addEventListener('click', function (e) {
+                if (!addPointMode) return;
+                // Only handle if plotly_click didn't already handle it
+                setTimeout(function () {
+                    if (!addPointMode) return; // mode was turned off by plotly_click
+                    const rect = mapDiv.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const coords = pixelToLatLon(x, y, rect.width, rect.height);
+                    if (coords) {
+                        addPoint(coords.lat, coords.lon);
+                        toggleAddMode();
+                    }
+                }, 50);
+            });
         }
 
-        // Convert pixel coordinates to lat/lon based on current map view
+        // Convert pixel position to geographic coordinates
         function pixelToLatLon(pixelX, pixelY, mapWidth, mapHeight) {
             const centerLat = mapState.center.lat;
             const centerLon = mapState.center.lon;
             const zoom = mapState.zoom;
-
-            // Calculate degrees per pixel at current zoom
-            // At zoom 0, the entire world (360°) fits in 256px
             const scale = Math.pow(2, zoom);
-            const degreesPerPixelLon = 360 / (256 * scale);
-            const degreesPerPixelLat = 180 / (256 * scale) * Math.cos(centerLat * Math.PI / 180);
-
-            // Calculate offset from center
+            // Mercator tile size is 512px in newer Plotly mapbox
+            const tileSize = 512;
+            const degreesPerPixelLon = 360 / (tileSize * scale);
+            // Latitude correction using cosine of center latitude
+            const degreesPerPixelLat = degreesPerPixelLon * Math.cos(centerLat * Math.PI / 180);
             const offsetX = pixelX - mapWidth / 2;
             const offsetY = pixelY - mapHeight / 2;
-
-            // Calculate lat/lon
             const lon = centerLon + offsetX * degreesPerPixelLon;
-            const lat = centerLat - offsetY * degreesPerPixelLat;  // Y is inverted
-
-            return { lat: lat, lon: lon };
+            const lat = centerLat - offsetY * degreesPerPixelLat;
+            return { lat: parseFloat(lat.toFixed(4)), lon: parseFloat(lon.toFixed(4)) };
         }
-
-        // Show click instructions
-        function showClickTip() {
-            const tip = document.createElement('div');
-            tip.innerHTML = '💡 Shift+Click anywhere on map to add a point';
-            tip.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,212,255,0.9);color:#0a0f1c;padding:10px 20px;border-radius:8px;font-weight:600;z-index:1000;';
-            document.body.appendChild(tip);
-            setTimeout(() => tip.remove(), 5000);
-        }
-        setTimeout(showClickTip, 1500);
 
         function calculateRoute() {
             if (selectedPoints.length < 2) {
@@ -585,7 +599,16 @@
                     }
 
                     const newFig = JSON.parse(data.map);
-                    Plotly.newPlot("map", newFig.data, newFig.layout);
+                    // Use react (not newPlot) to update in-place and keep scroll/zoom
+                    Plotly.react("map", newFig.data, newFig.layout).then(function () {
+                        // Re-attach handlers after the map is updated
+                        attachClickHandler();
+                        // Update mapState to match the new route view
+                        if (newFig.layout.mapbox) {
+                            if (newFig.layout.mapbox.center) mapState.center = newFig.layout.mapbox.center;
+                            if (newFig.layout.mapbox.zoom) mapState.zoom = newFig.layout.mapbox.zoom;
+                        }
+                    });
 
                     // Display 3 routes with risk scores
                     if (data.routes && data.routes.length > 0) {
