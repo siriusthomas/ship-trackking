@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Maritime Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 70px);
+        }
+
+        #map {
+            flex: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .sidebar {
+            width: 320px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .panel h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8be9fd;
+            margin-bottom: 12px;
+        }
+
+        .instructions {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+        }
+
+        .instructions strong {
+            color: #50fa7b;
+        }
+
+        .coord-input {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .coord-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 0.9rem;
+        }
+
+        .coord-input input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .btn-add {
+            padding: 10px 15px;
+            background: #6272a4;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-add:hover {
+            background: #7283b5;
+        }
+
+        .points-list {
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+
+        .point-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+
+        .point-item .num {
+            background: #6272a4;
+            color: #fff;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        .point-item:first-child .num {
+            background: #50fa7b;
+            color: #1a1a2e;
+        }
+
+        .point-item:last-child .num {
+            background: #ff5555;
+        }
+
+        .point-item .coords {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.75rem;
+        }
+
+        .point-item .remove {
+            cursor: pointer;
+            color: #ff5555;
+            font-size: 1.1rem;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #50fa7b 0%, #3ddc84 100%);
+            color: #1a1a2e;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(80, 250, 123, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #666;
+            color: #999;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .route-info {
+            background: rgba(80, 250, 123, 0.1);
+            border: 1px solid #50fa7b;
+            border-radius: 8px;
+            padding: 15px;
+            display: none;
+        }
+
+        .route-info.show {
+            display: block;
+        }
+
+        .route-info h4 {
+            color: #50fa7b;
+            margin-bottom: 10px;
+        }
+
+        .route-info .stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        .route-info .stat span:last-child {
+            font-weight: bold;
+            color: #8be9fd;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.4);
+            font-style: italic;
+        }
+
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 5px;
+        }
+
+        .route-item {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid #666;
+        }
+
+        .route-item.safe {
+            border-left-color: #50fa7b;
+        }
+
+        .route-item.moderate {
+            border-left-color: #f1fa8c;
+        }
+
+        .route-item.high-risk {
+            border-left-color: #ff5555;
+        }
+
+        .route-item .route-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+        }
+
+        .route-item .route-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .route-item .route-stats span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Maritime Traffic Dashboard</h1>
+        <a href="/" style="color: #8be9fd; text-decoration: none;">Back to Home</a>
+    </div>
+
+    <div class="container">
+        <div id="map"></div>
+
+        <div class="sidebar">
+            <div class="panel">
+                <h3>Add Points</h3>
+                <p class="instructions">
+                    <strong>Option 1:</strong> Enter coordinates below<br>
+                    <strong>Option 2:</strong> Click on ships/zones<br>
+                    <strong>Option 3:</strong> <span style="color:#50fa7b">Shift+Click</span> anywhere on map
+                </p>
+                <div class="coord-input" style="margin-top: 10px;">
+                    <input type="number" id="latInput" placeholder="Latitude" step="0.0001">
+                    <input type="number" id="lonInput" placeholder="Longitude" step="0.0001">
+                    <button class="btn-add" onclick="addPointFromInput()">+</button>
+                </div>
+                <p class="hint">Example: Lat 40.7, Lon -74.0 (NYC area)</p>
+            </div>
+
+            <div class="panel" style="flex: 1;">
+                <h3>Selected Points (<span id="pointCount">0</span>)</h3>
+                <div id="pointsList" class="points-list">
+                    <div class="empty-state">No points selected yet</div>
+                </div>
+            </div>
+
+            <div class="route-info" id="routeInfo">
+                <h4>3 Routes Calculated</h4>
+                <div id="routesList"></div>
+            </div>
+
+            <button class="btn btn-primary" id="travelBtn" disabled onclick="calculateRoute()">
+                Travel Route
+            </button>
+            <button class="btn btn-secondary" onclick="clearPoints()">
+                Clear All Points
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let fig = {{ map_json| safe }};
+        let selectedPoints = [];
+
+        // Initialize map
+        Plotly.newPlot("map", fig.data, fig.layout);
+
+        // Load pre-selected points from index page
+        const savedPoints = sessionStorage.getItem('routePoints');
+        if (savedPoints) {
+            try {
+                const points = JSON.parse(savedPoints);
+                points.forEach(p => addPoint(p.lat, p.lon));
+                sessionStorage.removeItem('routePoints');
+            } catch (e) {
+                console.error('Error loading saved points:', e);
+            }
+        }
+
+        // Attach click handler for map interactions
+        attachClickHandler();
+
+        // Add point from manual input
+        function addPointFromInput() {
+            console.log('addPointFromInput called');
+            const latVal = document.getElementById('latInput').value;
+            const lonVal = document.getElementById('lonInput').value;
+            console.log('Raw values:', latVal, lonVal);
+
+            const lat = parseFloat(latVal);
+            const lon = parseFloat(lonVal);
+            console.log('Parsed values:', lat, lon);
+
+            if (isNaN(lat) || isNaN(lon)) {
+                alert('Please enter valid latitude and longitude values');
+                return;
+            }
+
+            if (lat < -90 || lat > 90) {
+                alert('Latitude must be between -90 and 90');
+                return;
+            }
+
+            if (lon < -180 || lon > 180) {
+                alert('Longitude must be between -180 and 180');
+                return;
+            }
+
+            addPoint(lat, lon);
+
+            // Clear inputs
+            document.getElementById('latInput').value = '';
+            document.getElementById('lonInput').value = '';
+        }
+
+        function addPoint(lat, lon) {
+            console.log('Adding point:', lat, lon);
+            selectedPoints.push({ lat: lat, lon: lon });
+            console.log('Total points now:', selectedPoints.length);
+            updatePointsList();
+            updateTravelButton();
+
+            // Add marker to map
+            const color = selectedPoints.length === 1 ? '#50fa7b' : '#6272a4';
+            Plotly.addTraces("map", {
+                lat: [lat],
+                lon: [lon],
+                mode: 'markers+text',
+                marker: { size: 20, color: color },
+                text: [selectedPoints.length.toString()],
+                textposition: 'middle center',
+                textfont: { size: 12, color: 'white' },
+                name: 'Point ' + selectedPoints.length,
+                showlegend: false
+            });
+            console.log('Marker added to map');
+        }
+
+        function updatePointsList() {
+            const list = document.getElementById('pointsList');
+            const count = document.getElementById('pointCount');
+            count.textContent = selectedPoints.length;
+
+            if (selectedPoints.length === 0) {
+                list.innerHTML = '<div class="empty-state">No points selected yet</div>';
+                return;
+            }
+
+            list.innerHTML = selectedPoints.map((p, i) => `
+        <div class="point-item">
+            <span class="num">${i + 1}</span>
+            <span class="coords">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</span>
+            <span class="remove" onclick="removePoint(${i})">x</span>
+        </div>
+    `).join('');
+        }
+
+        function removePoint(index) {
+            selectedPoints.splice(index, 1);
+            updatePointsList();
+            updateTravelButton();
+            refreshMap();
+        }
+
+        function updateTravelButton() {
+            const btn = document.getElementById('travelBtn');
+            btn.disabled = selectedPoints.length < 2;
+        }
+
+        function clearPoints() {
+            selectedPoints = [];
+            updatePointsList();
+            updateTravelButton();
+            document.getElementById('routeInfo').classList.remove('show');
+            refreshMap();
+        }
+
+        function refreshMap() {
+            Plotly.newPlot("map", fig.data, fig.layout);
+
+            // Re-attach click handler after plot refresh
+            attachClickHandler();
+
+            selectedPoints.forEach((p, i) => {
+                Plotly.addTraces("map", {
+                    lat: [p.lat],
+                    lon: [p.lon],
+                    mode: 'markers+text',
+                    marker: { size: 20, color: i === 0 ? '#50fa7b' : '#6272a4' },
+                    text: [(i + 1).toString()],
+                    textposition: 'middle center',
+                    textfont: { size: 12, color: 'white' },
+                    showlegend: false
+                });
+            });
+        }
+
+        // Track current map state
+        let mapState = {
+            center: fig.layout.mapbox.center,
+            zoom: fig.layout.mapbox.zoom || 8
+        };
+
+        function attachClickHandler() {
+            const mapDiv = document.getElementById("map");
+
+            // Handle clicks on data points (ships, zones, grid)
+            mapDiv.on("plotly_click", function (data) {
+                console.log('plotly_click event', data);
+                if (data.points && data.points.length > 0) {
+                    const point = data.points[0];
+                    if (point.lat !== undefined && point.lon !== undefined) {
+                        addPoint(point.lat, point.lon);
+                    }
+                }
+            });
+
+            // Track map center/zoom changes
+            mapDiv.on("plotly_relayout", function (eventData) {
+                if (eventData) {
+                    if (eventData['mapbox.center']) {
+                        mapState.center = eventData['mapbox.center'];
+                    }
+                    if (eventData['mapbox.zoom']) {
+                        mapState.zoom = eventData['mapbox.zoom'];
+                    }
+                }
+            });
+
+            // Add native click handler for clicking anywhere
+            // This uses Shift+Click to add points anywhere on the map
+            mapDiv.addEventListener('click', function (e) {
+                if (e.shiftKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // Get the mapbox container bounds
+                    const rect = mapDiv.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+
+                    // Convert pixel to lat/lon
+                    const coords = pixelToLatLon(x, y, rect.width, rect.height);
+                    if (coords) {
+                        addPoint(coords.lat, coords.lon);
+                        console.log('Shift+Click added point:', coords);
+                    }
+                }
+            });
+        }
+
+        // Convert pixel coordinates to lat/lon based on current map view
+        function pixelToLatLon(pixelX, pixelY, mapWidth, mapHeight) {
+            const centerLat = mapState.center.lat;
+            const centerLon = mapState.center.lon;
+            const zoom = mapState.zoom;
+
+            // Calculate degrees per pixel at current zoom
+            // At zoom 0, the entire world (360°) fits in 256px
+            const scale = Math.pow(2, zoom);
+            const degreesPerPixelLon = 360 / (256 * scale);
+            const degreesPerPixelLat = 180 / (256 * scale) * Math.cos(centerLat * Math.PI / 180);
+
+            // Calculate offset from center
+            const offsetX = pixelX - mapWidth / 2;
+            const offsetY = pixelY - mapHeight / 2;
+
+            // Calculate lat/lon
+            const lon = centerLon + offsetX * degreesPerPixelLon;
+            const lat = centerLat - offsetY * degreesPerPixelLat;  // Y is inverted
+
+            return { lat: lat, lon: lon };
+        }
+
+        // Show click instructions
+        function showClickTip() {
+            const tip = document.createElement('div');
+            tip.innerHTML = '💡 Shift+Click anywhere on map to add a point';
+            tip.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,212,255,0.9);color:#0a0f1c;padding:10px 20px;border-radius:8px;font-weight:600;z-index:1000;';
+            document.body.appendChild(tip);
+            setTimeout(() => tip.remove(), 5000);
+        }
+        setTimeout(showClickTip, 1500);
+
+        function calculateRoute() {
+            if (selectedPoints.length < 2) {
+                alert('Please select at least 2 points');
+                return;
+            }
+
+            const btn = document.getElementById('travelBtn');
+            btn.textContent = 'Calculating...';
+            btn.disabled = true;
+            document.querySelector('.container').classList.add('loading');
+
+            fetch('/plan_route', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ points: selectedPoints })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+
+                    const newFig = JSON.parse(data.map);
+                    Plotly.newPlot("map", newFig.data, newFig.layout);
+
+                    // Display 3 routes with risk scores
+                    if (data.routes && data.routes.length > 0) {
+                        const routesList = document.getElementById('routesList');
+                        routesList.innerHTML = data.routes.map((r, i) => {
+                            const safetyClass = r.safety_rating === 'Safe' ? 'safe' :
+                                (r.safety_rating === 'Moderate' ? 'moderate' : 'high-risk');
+                            const colors = ['#2E86AB', '#F18F01', '#C73E1D'];
+                            return `
+                                <div class="route-item ${safetyClass}">
+                                    <div class="route-name" style="color: ${colors[i]}">${r.name}</div>
+                                    <div class="route-stats">
+                                        <span>Distance: ${r.distance.toFixed(1)} km</span>
+                                        <span>Risk: ${r.risk_score}</span>
+                                        <span>${r.safety_rating}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                    document.getElementById('routeInfo').classList.add('show');
+
+                    selectedPoints = data.points_order;
+                    updatePointsList();
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    alert('Failed to calculate route');
+                })
+                .finally(() => {
+                    btn.textContent = 'Travel Route';
+                    btn.disabled = selectedPoints.length < 2;
+                    document.querySelector('.container').classList.remove('loading');
+                });
+        }
+
+        // Allow Enter key to add point
+        document.getElementById('lonInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') addPointFromInput();
+        });
+    </script>
+
+</body>
+
+</html>

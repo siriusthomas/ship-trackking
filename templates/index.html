@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Maritime Traffic System - Ship Route Planner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Advanced maritime traffic monitoring and route planning system with real-time ship tracking and risk analysis">
+    <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0f1c 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-waves {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.3;
+        }
+
+        .wave {
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at center, rgba(30, 144, 255, 0.1) 0%, transparent 70%);
+            animation: wave 15s ease-in-out infinite;
+        }
+
+        .wave:nth-child(2) {
+            animation-delay: -5s;
+            opacity: 0.5;
+        }
+
+        @keyframes wave {
+
+            0%,
+            100% {
+                transform: translate(-20%, -20%) rotate(0deg);
+            }
+
+            50% {
+                transform: translate(-30%, -25%) rotate(180deg);
+            }
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 15, 28, 0.8);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.3rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .nav-link {
+            color: #8be9fd;
+            text-decoration: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            background: rgba(139, 233, 253, 0.1);
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            background: rgba(139, 233, 253, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 140px 40px 60px;
+            text-align: center;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            background: rgba(80, 250, 123, 0.15);
+            border: 1px solid rgba(80, 250, 123, 0.3);
+            border-radius: 50px;
+            font-size: 0.85rem;
+            color: #50fa7b;
+            margin-bottom: 24px;
+            font-weight: 500;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #fff 0%, #8be9fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: rgba(255, 255, 255, 0.6);
+            max-width: 600px;
+            margin: 0 auto 40px;
+            line-height: 1.6;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #0a0f1c;
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Features Grid */
+        .features {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 28px;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateY(-5px);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+        }
+
+        .feature-icon.blue {
+            background: rgba(0, 212, 255, 0.15);
+        }
+
+        .feature-icon.green {
+            background: rgba(80, 250, 123, 0.15);
+        }
+
+        .feature-icon.orange {
+            background: rgba(255, 184, 77, 0.15);
+        }
+
+        .feature-icon.purple {
+            background: rgba(189, 147, 249, 0.15);
+        }
+
+        .feature-card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        /* Main Content - Map & Panel */
+        .main-section {
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .section-title h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .section-title p {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 30px;
+        }
+
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        #mini-map {
+            min-height: 500px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .input-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 28px;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel-header-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 212, 255, 0.15);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .panel-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .input-group {
+            margin-bottom: 0;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .input-group input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+
+        .btn-add {
+            width: 100%;
+            background: rgba(0, 212, 255, 0.1);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .btn-add:hover {
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        .hint {
+            text-align: center;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 20px;
+        }
+
+        .points-preview {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .points-preview h4 {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .points-preview h4 span {
+            background: #00d4ff;
+            color: #0a0f1c;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .point {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .point .num {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: #0a0f1c;
+            margin-right: 10px;
+        }
+
+        .point .coords {
+            flex: 1;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .point .remove {
+            cursor: pointer;
+            color: #ff5555;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .point .remove:hover {
+            background: rgba(255, 85, 85, 0.2);
+        }
+
+        .empty {
+            color: rgba(255, 255, 255, 0.3);
+            font-style: italic;
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .btn-go {
+            width: 100%;
+            background: linear-gradient(135deg, #50fa7b 0%, #3ddc84 100%);
+            color: #0a0f1c;
+            font-weight: 700;
+            font-size: 1rem;
+            box-shadow: 0 10px 30px rgba(80, 250, 123, 0.3);
+        }
+
+        .btn-go:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(80, 250, 123, 0.4);
+        }
+
+        .btn-go:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .divider {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.3);
+            margin: 16px 0;
+            font-size: 0.8rem;
+            position: relative;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
+        }
+
+        .btn-dashboard {
+            width: 100%;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.6);
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-dashboard:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+        }
+
+        /* Stats Section */
+        .stats {
+            padding: 60px 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #00d4ff;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 0.85rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 40px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="bg-waves">
+        <div class="wave"></div>
+        <div class="wave"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">⚓</div>
+            <span>MaritimeTrack</span>
+        </div>
+        <a href="/dashboard" class="nav-link">Open Dashboard →</a>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-badge">🚢 Real-Time Ship Tracking</div>
+        <h1>Intelligent Maritime Route Planning</h1>
+        <p>Plan optimal shipping routes with real-time traffic data, risk analysis, and AI-powered recommendations for
+            safer, faster voyages.</p>
+        <div class="hero-buttons">
+            <a href="#planner" class="btn btn-primary">Start Planning →</a>
+            <a href="/dashboard" class="btn btn-secondary">View Live Map</a>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features">
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon blue">📍</div>
+                <h3>Multi-Point Routes</h3>
+                <p>Select multiple waypoints on the map and get optimized routes between them.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon green">🛡️</div>
+                <h3>Risk Analysis</h3>
+                <p>Get safety ratings for each route based on traffic density and risk zones.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon orange">⚡</div>
+                <h3>3 Route Options</h3>
+                <p>Compare three alternative routes with distance and risk scores.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon purple">🌊</div>
+                <h3>Water-Only Paths</h3>
+                <p>Routes automatically stay on water, avoiding land masses.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <section class="main-section" id="planner">
+        <div class="section-title">
+            <h2>Plan Your Route</h2>
+            <p>Click on the map or enter coordinates to add waypoints</p>
+        </div>
+
+        <div class="main-content">
+            <div id="mini-map"></div>
+
+            <div class="input-panel">
+                <div class="panel-header">
+                    <div class="panel-header-icon">📌</div>
+                    <h3>Add Waypoints</h3>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Latitude</label>
+                        <input type="number" id="latInput" placeholder="40.7128" step="0.0001">
+                    </div>
+                    <div class="input-group">
+                        <label>Longitude</label>
+                        <input type="number" id="lonInput" placeholder="-74.0060" step="0.0001">
+                    </div>
+                </div>
+
+                <button class="btn btn-add" onclick="addPoint()">+ Add Point</button>
+                <p class="hint">💡 Tip: Click directly on the map to add points</p>
+
+                <div class="points-preview">
+                    <h4>Selected Points <span id="pointCount">0</span></h4>
+                    <div id="pointsList">
+                        <p class="empty">No waypoints added yet</p>
+                    </div>
+                </div>
+
+                <button class="btn btn-go" id="goBtn" disabled onclick="goToDashboard()">
+                    🚀 Generate Routes
+                </button>
+
+                <div class="divider">or</div>
+
+                <a href="/dashboard" style="text-decoration: none;">
+                    <button class="btn btn-dashboard">Skip to Dashboard</button>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="stats">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">50+</div>
+                <div class="stat-label">Ships Tracked</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Route Options</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">Real-time</div>
+                <div class="stat-label">Risk Analysis</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">100%</div>
+                <div class="stat-label">Water Routes</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>Maritime Traffic System &copy; 2026 — Intelligent Route Planning</p>
+    </footer>
+
+    <script>
+        let selectedPoints = [];
+        let mapData = {{ map_json | safe }};
+
+        // Initialize mini map
+        Plotly.newPlot("mini-map", mapData.data, mapData.layout);
+
+        // Handle map clicks
+        document.getElementById("mini-map").on("plotly_click", function (data) {
+            if (data.points && data.points.length > 0) {
+                const point = data.points[0];
+                if (point.lat !== undefined && point.lon !== undefined) {
+                    addPointToList(point.lat, point.lon);
+                }
+            }
+        });
+
+        function addPoint() {
+            const lat = parseFloat(document.getElementById('latInput').value);
+            const lon = parseFloat(document.getElementById('lonInput').value);
+
+            if (isNaN(lat) || isNaN(lon)) {
+                alert('Please enter valid coordinates');
+                return;
+            }
+
+            if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                alert('Invalid coordinate range');
+                return;
+            }
+
+            addPointToList(lat, lon);
+            document.getElementById('latInput').value = '';
+            document.getElementById('lonInput').value = '';
+        }
+
+        function addPointToList(lat, lon) {
+            selectedPoints.push({ lat, lon });
+            updateDisplay();
+
+            // Add marker to map
+            Plotly.addTraces("mini-map", {
+                lat: [lat], lon: [lon],
+                mode: 'markers+text',
+                marker: { size: 18, color: selectedPoints.length === 1 ? '#50fa7b' : '#00d4ff' },
+                text: [selectedPoints.length.toString()],
+                textposition: 'middle center',
+                textfont: { size: 11, color: '#0a0f1c', family: 'Inter' },
+                showlegend: false
+            });
+        }
+
+        function removePoint(index) {
+            selectedPoints.splice(index, 1);
+            updateDisplay();
+            refreshMap();
+        }
+
+        function refreshMap() {
+            Plotly.newPlot("mini-map", mapData.data, mapData.layout);
+
+            // Re-attach click handler
+            document.getElementById("mini-map").on("plotly_click", function (data) {
+                if (data.points && data.points.length > 0) {
+                    const point = data.points[0];
+                    if (point.lat !== undefined && point.lon !== undefined) {
+                        addPointToList(point.lat, point.lon);
+                    }
+                }
+            });
+
+            selectedPoints.forEach((p, i) => {
+                Plotly.addTraces("mini-map", {
+                    lat: [p.lat], lon: [p.lon],
+                    mode: 'markers+text',
+                    marker: { size: 18, color: i === 0 ? '#50fa7b' : '#00d4ff' },
+                    text: [(i + 1).toString()],
+                    textposition: 'middle center',
+                    textfont: { size: 11, color: '#0a0f1c', family: 'Inter' },
+                    showlegend: false
+                });
+            });
+        }
+
+        function updateDisplay() {
+            const count = document.getElementById('pointCount');
+            const list = document.getElementById('pointsList');
+            const btn = document.getElementById('goBtn');
+
+            count.textContent = selectedPoints.length;
+            btn.disabled = selectedPoints.length < 2;
+
+            if (selectedPoints.length === 0) {
+                list.innerHTML = '<p class="empty">No waypoints added yet</p>';
+                return;
+            }
+
+            list.innerHTML = selectedPoints.map((p, i) => `
+                <div class="point">
+                    <span class="num">${i + 1}</span>
+                    <span class="coords">${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}</span>
+                    <span class="remove" onclick="removePoint(${i})">✕</span>
+                </div>
+            `).join('');
+        }
+
+        function goToDashboard() {
+            sessionStorage.setItem('routePoints', JSON.stringify(selectedPoints));
+            window.location.href = '/dashboard?withPoints=1';
+        }
+
+        // Enter key to add point
+        document.getElementById('lonInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') addPoint();
+        });
+    </script>
+</body>
+
+</html>
